@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<div class="search-box">
+    <form action="/search" method="get">
+        <input type="text" name="q" placeholder="Поиск по вики...">
+    </form>
+</div>
+
+<h2 style="margin-bottom: 15px;">Популярные теги</h2>
+<div style="margin-bottom: 20px;">
+    {% for tag, count in tags.items()[:10] %}
+    <a href="/search?q=#{{ tag }}" class="tag">#{{ tag }} ({{ count }})</a>
+    {% endfor %}
+</div>
+
+<h2 style="margin-bottom: 15px;">Последние страницы</h2>
+<div class="grid">
+    {% for slug in pages %}
+    <div class="card">
+        <a href="/page/{{ slug }}" style="text-decoration: none; color: inherit;">
+            <h3>{{ slug }}</h3>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
