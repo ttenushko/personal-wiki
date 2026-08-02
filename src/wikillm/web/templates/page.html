@@ -4,14 +4,14 @@
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
         <h1>{{ page.title }}</h1>
-        <button class="btn-danger" onclick="deletePage('{{ page.slug }}')">Удалить</button>
+        <button class="btn-danger" onclick="deletePage('{{ page.slug | e }}')">Удалить</button>
     </div>
     
     <div style="margin-bottom: 15px;">
         <strong>Теги:</strong>
         <span id="tags-container">
             {% for tag in page.tags %}
-            <span class="tag" onclick="removeTag('{{ tag }}')">#{{ tag }} ✕</span>
+            <span class="tag" onclick="removeTag('{{ tag | e }}')">#{{ tag }} ✕</span>
             {% endfor %}
         </span>
         <div style="margin-top: 10px;">
@@ -32,7 +32,7 @@
     </div>
 
     <div class="content" style="line-height: 1.6;">
-        {{ page.content | safe }}
+        {{ page.content | markdown | safe }}
     </div>
 </div>
 
@@ -42,9 +42,9 @@ async function addTag() {
     const tag = input.value.replace('#', '').trim();
     if (!tag) return;
     
-    const tags = [{% for tag in page.tags %}'{{ tag }}'{% if not loop.last %},{% endif %}{% endfor %}, tag];
+    const tags = [{% for tag in page.tags %}'{{ tag | e }}'{% if not loop.last %},{% endif %}{% endfor %}, tag];
     
-    const response = await fetch('/api/page/{{ page.slug }}/tags', {
+    const response = await fetch('/api/page/{{ page.slug | e }}/tags', {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({tags: tags})
@@ -54,9 +54,9 @@ async function addTag() {
 }
 
 async function removeTag(tag) {
-    const tags = [{% for tag in page.tags %}{% if tag != page.tags[-1] %}'{{ tag }}',{% else %}'{{ tag }}'{% endif %}{% endfor %}].filter(t => t !== tag);
+    const tags = [{% for tag in page.tags %}'{{ tag | e }}'{% if not loop.last %},{% endif %}{% endfor %}].filter(t => t !== tag);
     
-    const response = await fetch('/api/page/{{ page.slug }}/tags', {
+    const response = await fetch('/api/page/{{ page.slug | e }}/tags', {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({tags: tags})

@@ -4,15 +4,11 @@ import re
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
-from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Message,
-    CallbackQuery,
-)
+from aiogram.types import Message
 
-from config.settings import settings
-from core.wiki_manager import WikiManager
+from wikillm.config.settings import settings
+from wikillm.core.logger import logger
+from wikillm.core.wiki_manager import WikiManager
 
 router = Router()
 wiki = WikiManager()
@@ -107,18 +103,26 @@ async def handle_text(message: Message) -> None:
 
     # Check if it's a URL
     url_match = re.search(r"https?://\S+", clean_text)
-    if url_match:
-        await message.answer("🔄 Обрабатываю ссылку...")
-        page = await wiki.ingest_url(url=url_match.group(0), user_tags=user_tags)
-    else:
-        await message.answer("🔄 Обрабатываю текст...")
-        page = await wiki.ingest_text(text=clean_text, user_tags=user_tags)
+    try:
+        if url_match:
+            await message.answer("🔄 Обрабатываю ссылку...")
+            page = await wiki.ingest_url(url=url_match.group(0), user_tags=user_tags)
+        else:
+            await message.answer("🔄 Обрабатываю текст...")
+            page = await wiki.ingest_text(text=clean_text, user_tags=user_tags)
+    except Exception:
+        logger.exception("Бот: не удалось обработать сообщение")
+        await message.answer(
+            "❌ Не удалось обработать сообщение. "
+            "Проверь, что хотя бы один LLM-провайдер работает."
+        )
+        return
 
     tags_str = ", ".join(f"#{t}" for t in page.tags)
     await message.answer(
         f"✅ Сохранено: {page.title}\n"
         f"Теги: {tags_str}\n"
-        f"Страница: wiki/{page.slug}.md"
+        f"Страница: {page.slug}.md"
     )
 
 
@@ -130,33 +134,42 @@ async def handle_document(message: Message) -> None:
 
     await message.answer("🔄 Загружаю файл...")
 
-    # Download file
-    file = await message.bot.get_file(doc.file_id)
-    file_bytes = await message.bot.download_file(file.file_path)
+    try:
+        # Загружаем файл, но извлекаем текст только по метаданным
+        file = await message.bot.get_file(doc.file_id)
+        await message.bot.download_file(file.file_path)
+        content = f"Файл: {doc.file_name}\nРазмер: {doc.file_size} байт"
+        user_tags = re.findall(r"#(\w+)", message.caption or "")
 
-    # Extract text (simple approach - just use filename and metadata)
-    content = f"Файл: {doc.file_name}\nРазмер: {doc.file_size} байт"
-    user_tags = re.findall(r"#(\w+)", message.caption or "")
-
-    page = await wiki.ingest_file(
-        filename=doc.file_name or "unknown",
-        content=content,
-        user_tags=user_tags,
-    )
+        page = await wiki.ingest_file(
+            filename=doc.file_name or "unknown",
+            content=content,
+            user_tags=user_tags,
+        )
+    except Exception:
+        logger.exception("Бот: не удалось обработать файл")
+        await message.answer(
+            "❌ Не удалось обработать файл. "
+            "Проверь, что хотя бы один LLM-провайдер работает."
+        )
+        return
 
     tags_str = ", ".join(f"#{t}" for t in page.tags)
     await message.answer(
         f"✅ Файл сохранён: {page.title}\n"
         f"Теги: {tags_str}\n"
-        f"Страница: wiki/{page.slug}.md\n\n"
+        f"Страница: {page.slug}.md\n\n"
         "ℹ️ Для полной обработки PDF/изображений нужна дополнительная настройка."
     )
 
 
 async def main() -> None:
+    if not settings.telegram_bot_token:
+        logger.error("TELEGRAM_BOT_TOKEN не задан в .env")
+        raise SystemExit("Ошибка: TELEGRAM_BOT_TOKEN не задан в .env")
     bot = Bot(token=settings.telegram_bot_token)
     dp = Dispatcher()
     dp.include_router(router)
 
-    print("🤖 Bot started")
+    logger.info("🤖 Bot started")
     await dp.start_polling(bot)

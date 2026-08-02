@@ -18,6 +18,10 @@ ENV/
 .env
 .env.local
 
+# Wiki content (synced via GitHub, not committed here)
+pages/
+site/
+
 # Logs
 *.log
 

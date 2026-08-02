@@ -1,68 +1,84 @@
 from __future__ import annotations
 
+import re
+from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Depends, HTTPException
+import markdown
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from config.settings import settings
-from core.wiki_manager import WikiManager
+from wikillm.config.settings import settings
+from wikillm.core.wiki_manager import WikiManager
 
 app = FastAPI(title="Personal Wiki")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+templates.env.filters["markdown"] = markdown.Markdown(
+    extensions=["fenced_code", "tables", "nl2br"],
+    output_format="html5",
+).convert
 wiki = WikiManager()
 
+SLUG_PATTERN = re.compile(r"^[a-z0-9_-]+$")
 
-# Simple auth
+
 def verify_password(request: Request) -> bool:
     password = request.cookies.get("wiki_password")
     return password == settings.web_password
 
 
-class TagUpdate(BaseModel):
-    slug: str
+class IngestTextRequest(BaseModel):
+    text: str
+    tags: list[str] | None = None
+
+
+class IngestUrlRequest(BaseModel):
+    url: str
+    text: str | None = None
+    tags: list[str] | None = None
+
+
+class TagsUpdateRequest(BaseModel):
     tags: list[str]
 
 
-class PageUpdate(BaseModel):
-    slug: str
-    title: str
-    content: str
-    tags: list[str]
-
-
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, response_model=None)
 async def index(request: Request) -> HTMLResponse | RedirectResponse:
     if not verify_password(request):
         return RedirectResponse("/login")
-    pages = wiki.list_pages()
+    pages = [p for p in (wiki.get_page(s) for s in wiki.list_pages()) if p]
     tags = wiki.list_tags()
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "pages": pages, "tags": tags},
+        {"request": request, "pages": pages, "tags": list(tags.items())[:10]},
     )
 
 
-@app.get("/login", response_class=HTMLResponse)
+@app.get("/login", response_class=HTMLResponse, response_model=None)
 async def login_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("login.html", {"request": request})
 
 
-@app.post("/login")
+@app.post("/login", response_model=None)
 async def login(request: Request) -> RedirectResponse:
     form = await request.form()
     password = form.get("password", "")
     if password == settings.web_password:
         response = RedirectResponse("/", status_code=303)
-        response.set_cookie("wiki_password", password)
+        response.set_cookie(
+            "wiki_password",
+            password,
+            httponly=True,
+            samesite="lax",
+            max_age=86400 * 30,
+        )
         return response
     return RedirectResponse("/login?error=1", status_code=303)
 
 
-@app.get("/page/{slug}", response_class=HTMLResponse)
+@app.get("/page/{slug}", response_class=HTMLResponse, response_model=None)
 async def view_page(request: Request, slug: str) -> HTMLResponse:
     if not verify_password(request):
         return RedirectResponse("/login")
@@ -75,7 +91,7 @@ async def view_page(request: Request, slug: str) -> HTMLResponse:
     )
 
 
-@app.get("/tags", response_class=HTMLResponse)
+@app.get("/tags", response_class=HTMLResponse, response_model=None)
 async def view_tags(request: Request) -> HTMLResponse:
     if not verify_password(request):
         return RedirectResponse("/login")
@@ -86,7 +102,7 @@ async def view_tags(request: Request) -> HTMLResponse:
     )
 
 
-@app.get("/search", response_class=HTMLResponse)
+@app.get("/search", response_class=HTMLResponse, response_model=None)
 async def search(request: Request, q: str = "") -> HTMLResponse:
     if not verify_password(request):
         return RedirectResponse("/login")
@@ -97,39 +113,40 @@ async def search(request: Request, q: str = "") -> HTMLResponse:
     )
 
 
-# API endpoints for bot/web interaction
 @app.post("/api/ingest/text")
-async def api_ingest_text(request: Request) -> dict:
-    data = await request.json()
+async def api_ingest_text(request: Request, data: IngestTextRequest) -> dict:
+    if not verify_password(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     page = await wiki.ingest_text(
-        text=data["text"],
-        user_tags=data.get("tags"),
+        text=data.text,
+        user_tags=data.tags,
     )
     return {"slug": page.slug, "title": page.title, "tags": page.tags}
 
 
 @app.post("/api/ingest/url")
-async def api_ingest_url(request: Request) -> dict:
-    data = await request.json()
+async def api_ingest_url(request: Request, data: IngestUrlRequest) -> dict:
+    if not verify_password(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     page = await wiki.ingest_url(
-        url=data["url"],
-        text=data.get("text"),
-        user_tags=data.get("tags"),
+        url=data.url,
+        text=data.text,
+        user_tags=data.tags,
     )
     return {"slug": page.slug, "title": page.title, "tags": page.tags}
 
 
 @app.put("/api/page/{slug}/tags")
-async def api_update_tags(slug: str, request: Request) -> dict:
-    data = await request.json()
+async def api_update_tags(slug: str, request: Request, data: TagsUpdateRequest) -> dict:
+    if not verify_password(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     page = wiki.get_page(slug)
     if not page:
         raise HTTPException(status_code=404)
-    page.tags = data["tags"]
-    from datetime import datetime
+    page.tags = data.tags
     page.updated_at = datetime.now()
-    wiki.github.create_or_update_file(
-        path=f"wiki/{slug}.md",
+    wiki.storage.save_page(
+        slug=slug,
         content=page.to_markdown(),
         message=f"Update tags for {page.title}",
     )
@@ -137,7 +154,9 @@ async def api_update_tags(slug: str, request: Request) -> dict:
 
 
 @app.delete("/api/page/{slug}")
-async def api_delete_page(slug: str) -> dict:
+async def api_delete_page(slug: str, request: Request) -> dict:
+    if not verify_password(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     success = wiki.delete_page(slug)
     if not success:
         raise HTTPException(status_code=500)

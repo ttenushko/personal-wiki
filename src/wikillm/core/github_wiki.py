@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import base64
-from pathlib import Path
 
 from github import Github, GithubException
 
-from config.settings import settings
+from wikillm.config.settings import settings
+from wikillm.core.logger import logger
 
 
 class GitHubWiki:
@@ -58,7 +58,7 @@ class GitHubWiki:
                 )
             return True
         except GithubException as e:
-            print(f"GitHub error: {e}")
+            logger.warning(f"GitHub create/update error: {e}")
             return False
 
     def delete_file(self, path: str, message: str) -> bool:
@@ -73,7 +73,7 @@ class GitHubWiki:
             )
             return True
         except GithubException as e:
-            print(f"GitHub error: {e}")
+            logger.warning(f"GitHub delete error: {e}")
             return False
 
     def list_files(self, path: str = "") -> list[str]:
@@ -85,28 +85,3 @@ class GitHubWiki:
             return [contents.path]
         except GithubException:
             return []
-
-    def list_markdown_files(self) -> list[str]:
-        """List all markdown files in the wiki."""
-        files = []
-        for item in self._list_all_files(""):
-            if item.endswith(".md"):
-                files.append(item)
-        return files
-
-    def _list_all_files(self, path: str) -> list[str]:
-        """Recursively list all files."""
-        files = []
-        try:
-            contents = self.repo.get_contents(path, ref=self.branch)
-            if isinstance(contents, list):
-                for item in contents:
-                    if item.type == "dir":
-                        files.extend(self._list_all_files(item.path))
-                    else:
-                        files.append(item.path)
-            else:
-                files.append(contents.path)
-        except GithubException:
-            pass
-        return files

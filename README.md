@@ -10,15 +10,26 @@
 
 ## Что реализовано
 
-### Telegram-бот
-- Приём текста, ссылок, файлов с телефона
-- Автоматическая обработка LLM
-- Извлечение и добавление тегов
-- Команды: `/tags`, `/pages`, `/search`, `/help`
+### CLI (главный интерфейс)
+- `add` — добавление текста/ссылки/заметки
+- `pages` — список страниц
+- `tags` — список тегов с количеством страниц
+- `search <запрос>` — поиск по вики
+- `get <slug>` — просмотр страницы
+- `delete <slug>` — удаление страницы
+- `build` — собрать статический HTML-сайт в `site/`
+- `open` — собрать сайт и открыть главную страницу в браузере
+- Теги через `#tag`, `#'tag с пробелом'`, `#"tag #3"` с валидацией ошибок
+
+### Хранилище
+- Страницы хранятся локально в `pages/` как markdown-файлы
+- Опционально синхронизируются с GitHub-репозиторием (бэкап)
+- `wiki open` генерирует статический HTML (без сервера) и открывает в браузере
 
 ### Ядро (LLM + GitHub)
-- Обработка контента через OpenRouter (Llama 3.1 8B free)
-- Автоматические коммиты в GitHub-репозиторий
+- Обработка контента через цепочку LLM-провайдеров (OpenRouter, OpenCode Zen, локальная Ollama)
+- **Скачивание и извлечение текста со ссылок** (httpx + BeautifulSoup)
+- Синхронизация с GitHub-репозиторием (опционально)
 - Структура wiki с frontmatter (теги, дата, источник)
 - Поиск по страницам и тегам
 
@@ -29,32 +40,34 @@
 - Удаление страниц
 - Авторизация по паролю
 
-### CLI
-- `python cli/main.py pages` — список страниц
-- `python cli/main.py tags` — список тегов
-- `python cli/main.py search <запрос>` — поиск
-- `python cli/main.py ingest <текст> --tags тег1 тег2` — добавление
+### Telegram-бот (в работе)
+- Приём текста, ссылок, файлов с телефона
+- Команды: `/tags`, `/pages`, `/search`, `/help`
 
 ## Структура проекта
 
 ```
 personal-wiki/
-├── bot/              # Telegram-бот (aiogram)
-│   ├── handlers.py   # Обработчики сообщений
-│   └── main.py       # Точка входа бота
-├── core/             # Ядро системы
-│   ├── llm.py        # Работа с OpenRouter API
-│   ├── models.py     # Модель WikiPage
-│   ├── github_wiki.py # Git-операции (PyGithub)
-│   └── wiki_manager.py # Оркестрация операций
-├── web/              # Веб-интерфейс
-│   ├── app.py        # FastAPI сервер
-│   └── templates/    # HTML-шаблоны (Jinja2)
-├── cli/              # CLI-утилита
-├── config/           # Настройки (pydantic-settings)
-├── main.py           # Точка входа
-├── pyproject.toml    # Зависимости
-└── .env.example      # Шаблон конфигурации
+├── src/wikillm/       # Код проекта (пакет)
+│   ├── bot/           # Telegram-бот (aiogram)
+│   ├── cli/           # CLI-утилита
+│   ├── config/        # Настройки (pydantic-settings)
+│   ├── core/          # Ядро системы
+│   │   ├── llm.py         # Цепочка LLM-провайдеров
+│   │   ├── storage.py     # Локальные страницы + GitHub-синк
+│   │   ├── site_builder.py# Генерация статического HTML
+│   │   ├── fetcher.py     # Скачивание текста со ссылок
+│   │   ├── validation.py  # Валидация вывода LLM (slug, теги)
+│   │   ├── models.py      # Модель WikiPage
+│   │   └── wiki_manager.py# Оркестрация операций
+│   ├── web/           # Веб-интерфейс (FastAPI)
+│   └── prompts/       # Markdown-шаблоны промптов
+├── pages/             # Вики-страницы (markdown, создаётся автоматически)
+├── site/              # Собранный статический HTML (wiki build)
+├── wiki.cmd           # Обёртка CLI для Windows
+├── wiki               # Обёртка CLI для Unix
+├── pyproject.toml     # Зависимости
+└── .env.example       # Шаблон конфигурации
 ```
 
 ## Быстрый старт
@@ -75,36 +88,60 @@ cp .env.example .env
 # Заполни .env ключами (см. раздел "Ключи" ниже)
 ```
 
-### 3. Запуск
+### 3. CLI
 
 ```bash
-# Всё вместе (бот + веб)
-python main.py all
+# Windows
+wiki.cmd add "Моя заметка" #android #kotlin
+wiki.cmd pages
 
-# Только бот
-python main.py bot
+# Unix/macOS
+chmod +x wiki
+./wiki add "Моя заметка" #android #kotlin
+```
 
-# Только веб-интерфейс
-python main.py web
+### 4. Просмотр вики (статический HTML)
+
+```bash
+# Windows: собрать и открыть в браузере
+wiki.cmd open
+
+# Unix/macOS
+./wiki open
+```
+
+`open` генерирует сайт в `site/` и открывает `index.html` в браузере — без сервера и пароля.
+
+### 5. Веб-интерфейс (опционально, для бота и API)
+
+```bash
+python -m wikillm.main web
+# → http://localhost:8000 (пароль: admin)
+```
+
+### 6. Telegram-бот (когда настроен токен)
+
+```bash
+python -m wikillm.main bot
 ```
 
 ## Ключи
-
-### Telegram Bot Token
-1. Напиши `/newbot` в [@BotFather](https://t.me/BotFather)
-2. Задай имя и username
-3. Скопируй токен в `TELEGRAM_BOT_TOKEN`
 
 ### OpenRouter API Key
 1. Зарегистрируйся на [openrouter.ai](https://openrouter.ai)
 2. Создай API-ключ в Settings → Keys
 3. Вставь в `OPENROUTER_API_KEY`
-4. Модель по умолчанию: `meta-llama/llama-3.1-8b-instruct:free` (бесплатная)
+4. Модель по умолчанию: `nvidia/nemotron-3-ultra-550b-a55b:free` (бесплатная)
 
 ### GitHub Token
 1. Создай [Personal Access Token](https://github.com/settings/tokens) с правами `repo`
 2. Создай пустой репозиторий (например `personal-wiki-vault`)
 3. Вставь токен в `GITHUB_TOKEN` и имя репо в `GITHUB_REPO` (формат: `username/repo`)
+
+### Telegram Bot Token
+1. Напиши `/newbot` в [@BotFather](https://t.me/BotFather)
+2. Задай имя и username
+3. Скопируй токен в `TELEGRAM_BOT_TOKEN`
 
 ### Google Drive (опционально)
 1. Создай проект в [Google Cloud Console](https://console.cloud.google.com)
@@ -115,59 +152,69 @@ python main.py web
 
 ## Использование
 
-### С телефона (Telegram)
-```
-Ты: Интересная статья о Coroutines в Kotlin #kotlin #coroutines
-Бот: 🔄 Обрабатываю текст...
-Бот: ✅ Сохранено: Coroutines в Kotlin
-     Теги: #kotlin, #coroutines, #асинхронность
-     Страница: wiki/coroutines-v-kotlin.md
+### CLI — добавление заметок
 
-Ты: /tags
-Бот: 📊 Теги:
-     #android — 12 стр.
-     #kotlin — 8 стр.
-     #coroutines — 3 стр.
+```bash
+# Текст с тегами
+wiki.cmd add "Заметка про RecyclerView" #android #kotlin
+
+# Тег с пробелом (одинарные или двойные кавычки)
+wiki.cmd add "Заметка" #'android разработка' #android
+wiki.cmd add "Заметка" #"android разработка" #android
+
+# Ссылка — контент скачается и обработается автоматически
+wiki.cmd add "https://developer.android.com" #android #'компоновка UI'
 ```
 
-### С компьютера (веб)
+При ошибке в тегах (несогласованные кавычки, не-тег) выводится сообщение и **ничего не добавляется**.
+
+### CLI — управление
+
+```bash
+wiki.cmd pages                    # Список страниц
+wiki.cmd tags                     # Список тегов
+wiki.cmd search android           # Поиск
+wiki.cmd get my-note              # Просмотр страницы
+wiki.cmd delete my-note           # Удаление
+wiki.cmd build                    # Собрать статический сайт в site/
+wiki.cmd open                     # Собрать и открыть в браузере
+```
+
+### GitHub-синк
+
+Страницы по умолчанию сохраняются локально в `pages/`. Если заполнить
+`GITHUB_TOKEN` и `GITHUB_REPO` в `.env`, каждая запись дублируется в
+GitHub-репозиторий (папка `wiki/`), а список страниц читается оттуда.
+
+### Веб
 - Открой `http://localhost:8000`
 - Введи пароль (по умолчанию: `admin`)
 - Просматривай, ищи, добавляй теги, удаляй страницы
 
-### CLI
-```bash
-python cli/main.py pages          # Список страниц
-python cli/main.py tags           # Список тегов
-python cli/main.py search android # Поиск
-python cli/main.py delete slug    # Удаление
-```
-
 ## Планируется
 
 ### Фаза 1: Базовый функционал ✅
-- [x] Telegram-бот
+- [x] CLI-утилита (`wiki.cmd` / `wiki`)
 - [x] GitHub-интеграция
 - [x] LLM-обработка (OpenRouter)
+- [x] Парсинг контента со ссылок
 - [x] Веб-интерфейс с авторизацией
-- [x] CLI-утилита
-- [x] Система тегов
+- [x] Система тегов с валидацией
 
-### Фаза 2: Расширенный функционал
+### Фаза 2: Боты и файлы
+- [ ] Telegram-бот: синхронизация формата тегов с CLI
 - [ ] Google Drive для тяжёлых файлов (PDF, изображения)
-- [ ] Парсинг контента по ссылкам (BeautifulSoup)
 - [ ] Обработка PDF и изображений (LLM vision)
+- [ ] Локальные тесты через Termux на телефоне
+
+### Фаза 3: Расширение
 - [ ] Экспорт вики (zip, Obsidian-формат)
 - [ ] Статистика (количество страниц, тегов, активность)
-
-### Фаза 3: Командная работа
 - [ ] Мульти-пользовательская авторизация
-- [ ] Роли (admin, viewer)
 - [ ] Одобрение изменений (workflow)
-- [ ] Уведомления о изменениях
 
 ### Фаза 4: Продвинутые возможности
-- [ ] Автоматический lint (проверка на противоречия)
+- [ ] Автоматический lint (проверка на противоречия, битые ссылки, сироты)
 - [ ] Генерация сводок/резюме
 - [ ] Интеграция с Notion/Obsidian
 - [ ] Мобильное приложение (PWA)
@@ -175,19 +222,20 @@ python cli/main.py delete slug    # Удаление
 
 ### Фаза 5: Деплой
 - [ ] Docker-контейнер
-- [ ] Деплой на Oracle Cloud Free Tier
+- [ ] Хостинг: Timeweb/Selectel VPS или домашний сервер + Cloudflare Tunnel
 - [ ] Настройка CI/CD
 - [ ] Мониторинг и логирование
 
 ## Технологии
 
 - **Язык:** Python 3.11+
+- **Просмотр:** статический HTML (markdown → html), без сервера
+- **Веб (опционально):** FastAPI + Jinja2
+- **LLM:** OpenRouter / OpenCode Zen / Ollama (цепочка провайдеров)
+- **Парсинг ссылок:** httpx + BeautifulSoup
+- **Хранилище:** локальная папка `pages/` + GitHub-синк
+- **CLI:** argparse + обёртки wiki.cmd/wiki
 - **Telegram:** aiogram 3.x
-- **Веб:** FastAPI + Jinja2
-- **LLM:** OpenRouter (Llama 3.1 8B free)
-- **Хранилище:** GitHub (markdown + git)
-- **Файлы:** Google Drive API (опционально)
-- **CLI:** argparse
 
 ## Лицензия
 
