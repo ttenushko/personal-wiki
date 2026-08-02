@@ -1,10 +1,10 @@
 ---
 title: "Списки в Python"
-tags: ["mutable", "heterogeneous", "indexed", "range", "string", "tuple", "append", "insert", "comma-separated", "no"]
+tags: ["python", "list"]
 source_url: ""
 source_type: "text"
 created_at: "2026-08-02T20:39:40.987203"
-updated_at: "2026-08-02T20:39:40.987203"
+updated_at: "2026-08-02T20:41:37.123213"
 ---
 
 # Списки в Python
