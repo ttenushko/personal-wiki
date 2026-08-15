@@ -24,8 +24,9 @@ theme:
 plugins:
   - search:
       lang: ru
-  - tags:
-      tags_file: tags.md
+
+extra_css:
+  - extra.css
 
 extra:
   generator: false

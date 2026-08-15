@@ -3,7 +3,8 @@
 
 1. Copies each wiki's pages into site-src/ as personal/, dev/, auto/
 2. Converts [[wikilink]] and [[page|text]] to markdown links
-3. Generates the root index.md
+3. Injects "Теги: ..." line into pages that have tags
+4. Generates per-section tags pages, common tags page, root index, extra CSS
 """
 
 import re
@@ -46,6 +47,36 @@ def convert_wikilinks(content: str, page_path: Path, link_map: dict) -> str:
     return WIKILINK_RE.sub(repl, content)
 
 
+def parse_frontmatter(content: str) -> dict:
+    """Crude YAML frontmatter parser for title + tags."""
+    result: dict = {}
+    if not content.startswith("---"):
+        return result
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return result
+    fm = parts[1]
+    m = re.search(r"(?m)^title:\s*(.+)$", fm)
+    if m:
+        result["title"] = m.group(1).strip().strip("'\"")
+    m = re.search(r"(?m)^tags:\s*\n((?:\s+-\s+[^\n]+\n?)+)", fm)
+    if m:
+        tags = [t.strip().lstrip("-").strip() for t in m.group(1).splitlines()]
+        result["tags"] = [t for t in tags if t]
+    return result
+
+
+def inject_tags(content: str, tags: list[str]) -> str:
+    if not tags:
+        return content
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return content
+    body = parts[2]
+    tags_line = ", ".join(f"`{t}`" for t in tags)
+    return f"{parts[0]}---{parts[1]}---\n> **Теги:** {tags_line}\n\n{body.lstrip()}\n"
+
+
 def copy_wiki(src: Path, section: str) -> None:
     dst = OUT / section
     shutil.rmtree(dst, ignore_errors=True)
@@ -58,12 +89,44 @@ def copy_wiki(src: Path, section: str) -> None:
         content = md.read_text(encoding="utf-8")
         if md.name == "index.md":
             content = content.replace("# Index", "# Индекс", 1)
+        fm = parse_frontmatter(content)
+        content = inject_tags(content, fm.get("tags", []))
         content = convert_wikilinks(content, target, link_map)
         target.write_text(content, encoding="utf-8")
 
 
+def collect_section_tags(section: str) -> dict[str, list[tuple[str, str]]]:
+    tags: dict[str, list[tuple[str, str]]] = {}
+    for md in (OUT / section).rglob("*.md"):
+        if md.name == "tags.md":
+            continue
+        fm = parse_frontmatter(md.read_text(encoding="utf-8"))
+        if not fm.get("tags"):
+            continue
+        title = fm.get("title") or md.stem
+        rel = md.relative_to(OUT).as_posix().replace(".md", "/")
+        for tag in fm["tags"]:
+            tags.setdefault(tag, []).append((rel, title))
+    return tags
+
+
+def build_tags_page(tags: dict[str, list[tuple[str, str]]], title: str) -> str:
+    lines = [f"# {title}", ""]
+    if not tags:
+        lines.append("Тегов пока нет.")
+        return "\n".join(lines)
+    for tag in sorted(tags):
+        lines.append(f"## `{tag}`")
+        for rel, page_title in sorted(tags[tag], key=lambda x: x[1]):
+            lines.append(f"- [{page_title}]({rel})")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def build_root_index() -> str:
-    lines = ["# База знаний", ""]
+    lines = ["---", "title: Главная", "---", "# База знаний", ""]
+    lines.append("Три базы знаний. Нажми на раздел, чтобы открыть.")
+    lines.append("")
     for section, title in WIKIS.items():
         lines.append(f"## [{title}]({section}/index.md)")
         index = OUT / section / "index.md"
@@ -72,7 +135,21 @@ def build_root_index() -> str:
                 if line.startswith("- [") and "wiki/" not in line:
                     lines.append(f"  {line}")
         lines.append("")
+    lines.append("## [Теги](tags.md)")
+    lines.append("")
     return "\n".join(lines)
+
+
+def build_extra_css() -> str:
+    return (
+        "/* Section headers in the sidebar: distinct, smaller, uppercase */\n"
+        ".md-nav__item--section > .md-nav__link .md-ellipsis {\n"
+        "  font-size: .68rem !important;\n"
+        "  text-transform: uppercase;\n"
+        "  letter-spacing: .06em;\n"
+        "  opacity: .6;\n"
+        "}\n"
+    )
 
 
 def main() -> None:
@@ -85,8 +162,21 @@ def main() -> None:
             copy_wiki(wiki_src, section)
         else:
             (OUT / section).mkdir(parents=True, exist_ok=True)
+
+    common_tags: dict[str, list[tuple[str, str]]] = {}
+    for section, title in WIKIS.items():
+        section_tags = collect_section_tags(section)
+        (OUT / section / "tags.md").write_text(
+            build_tags_page(section_tags, f"Теги: {title}"), encoding="utf-8"
+        )
+        for tag, pages in section_tags.items():
+            common_tags.setdefault(tag, []).extend(pages)
+
+    (OUT / "tags.md").write_text(
+        build_tags_page(common_tags, "Все теги"), encoding="utf-8"
+    )
     (OUT / "index.md").write_text(build_root_index(), encoding="utf-8")
-    (OUT / "tags.md").write_text("# Теги\n\nСтраница заполняется плагином MkDocs.\n", encoding="utf-8")
+    (OUT / "extra.css").write_text(build_extra_css(), encoding="utf-8")
     print(f"Site source built in {OUT}")
 
 
