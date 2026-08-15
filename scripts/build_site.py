@@ -155,7 +155,6 @@ def build_nav() -> list:
             sub = rel.parent.name
             label = SUBDIR_TITLES.get(sub, sub.capitalize())
             children.append({label: path})
-        children.append({"Теги": f"{section}/tags.md"})
         nav.append({title: children})
     return nav
 
