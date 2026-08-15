@@ -17,14 +17,18 @@ OUT = ROOT / "site-src"
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 
 
-def build_link_map(src: Path) -> dict[str, Path]:
-    """Multiple aliases (stem + relative path w/o extension) -> file path."""
+def build_link_map(src: Path, section: str) -> dict[str, Path]:
+    """Aliases (stem, relative path, with/without .md) -> output file path."""
     mapping: dict[str, Path] = {}
     for md in src.rglob("*.md"):
         rel = md.relative_to(src).with_suffix("")
-        mapping[md.stem] = md
-        mapping[rel.as_posix()] = md
-        mapping[md.name.removesuffix(".md")] = md
+        target = OUT / section / rel.with_suffix(".md")
+        mapping[md.stem] = target
+        mapping[rel.as_posix()] = target
+        mapping[md.name] = target
+        mapping[f"{rel.as_posix()}.md"] = target
+        mapping[f"wiki/{rel.as_posix()}"] = target
+        mapping[f"wiki/{rel.as_posix()}.md"] = target
     return mapping
 
 
@@ -46,12 +50,14 @@ def copy_wiki(src: Path, section: str) -> None:
     dst = OUT / section
     shutil.rmtree(dst, ignore_errors=True)
     dst.mkdir(parents=True, exist_ok=True)
-    link_map = build_link_map(src)
+    link_map = build_link_map(src, section)
     for md in src.rglob("*.md"):
         rel = md.relative_to(src)
         target = dst / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         content = md.read_text(encoding="utf-8")
+        if md.name == "index.md":
+            content = content.replace("# Index", "# Индекс", 1)
         content = convert_wikilinks(content, target, link_map)
         target.write_text(content, encoding="utf-8")
 
