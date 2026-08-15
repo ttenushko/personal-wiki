@@ -1,0 +1,7 @@
+name: Личное
+domain: личные заметки, фильмы, хобби, идеи
+created: '2026-08-15T18:15:28.227Z'
+paths:
+  raw: raw
+  wiki: wiki
+  schema: SCHEMA.md

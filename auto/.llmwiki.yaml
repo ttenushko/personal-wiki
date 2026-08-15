@@ -1,0 +1,7 @@
+name: Автомобили
+domain: автомобили, техобслуживание
+created: '2026-08-15T18:15:49.395Z'
+paths:
+  raw: raw
+  wiki: wiki
+  schema: SCHEMA.md
