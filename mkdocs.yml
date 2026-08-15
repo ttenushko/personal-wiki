@@ -31,4 +31,12 @@ extra_css:
 extra:
   generator: false
 
-copyright: Личная база знаний
+nav:
+- Главная: index.md
+- Личное:
+  - Индекс: personal/index.md
+- Разработка:
+  - Индекс: dev/index.md
+  - Источники: dev/sources/android-developers.md
+- Автомобили:
+  - Индекс: auto/index.md
