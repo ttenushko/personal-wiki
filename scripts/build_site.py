@@ -77,7 +77,7 @@ def inject_tags(content: str, tags: list[str]) -> str:
     return f"{parts[0]}---{parts[1]}---\n> **Теги:** {tags_line}\n\n{body.lstrip()}\n"
 
 
-def copy_wiki(src: Path, section: str) -> None:
+def copy_wiki(src: Path, section: str, section_title: str) -> None:
     dst = OUT / section
     shutil.rmtree(dst, ignore_errors=True)
     dst.mkdir(parents=True, exist_ok=True)
@@ -89,6 +89,11 @@ def copy_wiki(src: Path, section: str) -> None:
         content = md.read_text(encoding="utf-8")
         if md.name == "index.md":
             content = content.replace("# Index", "# Индекс", 1)
+            if not content.startswith("---"):
+                content = f"---\ntitle: {section_title}\n---\n{content}"
+            else:
+                parts = content.split("---", 2)
+                content = f"{parts[0]}---\ntitle: {section_title}\n---{parts[2]}"
         fm = parse_frontmatter(content)
         content = inject_tags(content, fm.get("tags", []))
         content = convert_wikilinks(content, target, link_map)
@@ -140,6 +145,45 @@ def build_root_index() -> str:
     return "\n".join(lines)
 
 
+SUBDIR_TITLES = {"sources": "Источники", "entities": "Люди", "concepts": "Идеи", "synthesis": "Анализ"}
+
+
+def build_nav() -> list:
+    nav: list = [{"Главная": "index.md"}]
+    for section, title in WIKIS.items():
+        pages = sorted(
+            md.relative_to(OUT).as_posix()
+            for md in (OUT / section).rglob("*.md")
+            if md.name not in ("tags.md",)
+        )
+        children: list = [{"Индекс": f"{section}/index.md"}]
+        for path in pages:
+            if path.endswith("/index.md"):
+                continue
+            rel = Path(path)
+            sub = rel.parent.name
+            label = SUBDIR_TITLES.get(sub, sub.capitalize())
+            children.append({label: path})
+        children.append({"Теги": f"{section}/tags.md"})
+        nav.append({title: children})
+    nav.append({"Теги": "tags.md"})
+    return nav
+
+
+def write_nav_to_mkdocs(nav: list) -> None:
+    import yaml
+
+    cfg_path = ROOT / "mkdocs.yml"
+    cfg = cfg_path.read_text(encoding="utf-8")
+    nav_yaml = yaml.safe_dump(nav, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    block = "nav:\n" + nav_yaml
+    if re.search(r"(?m)^nav:\n", cfg):
+        cfg = re.sub(r"(?m)^nav:\n(?:[ \t].*\n?)*", block + "\n", cfg, count=1)
+    else:
+        cfg = cfg.rstrip() + "\n\n" + block
+    cfg_path.write_text(cfg, encoding="utf-8")
+
+
 def build_extra_css() -> str:
     return (
         "/* Section headers in the sidebar: distinct, smaller, uppercase */\n"
@@ -156,10 +200,10 @@ def main() -> None:
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True, exist_ok=True)
-    for section, _title in WIKIS.items():
+    for section, title in WIKIS.items():
         wiki_src = ROOT / section / "wiki"
         if wiki_src.exists():
-            copy_wiki(wiki_src, section)
+            copy_wiki(wiki_src, section, title)
         else:
             (OUT / section).mkdir(parents=True, exist_ok=True)
 
@@ -177,6 +221,7 @@ def main() -> None:
     )
     (OUT / "index.md").write_text(build_root_index(), encoding="utf-8")
     (OUT / "extra.css").write_text(build_extra_css(), encoding="utf-8")
+    write_nav_to_mkdocs(build_nav())
     print(f"Site source built in {OUT}")
 
 
