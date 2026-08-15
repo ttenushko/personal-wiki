@@ -60,7 +60,7 @@ def parse_frontmatter(content: str) -> dict:
     m = re.search(r"(?m)^title:\s*(.+)$", fm)
     if m:
         result["title"] = m.group(1).strip().strip("'\"")
-    m = re.search(r"(?m)^tags:\s*\n((?:\s+-\s+[^\n]+\n?)+)", fm)
+    m = re.search(r"(?m)^tags:\s*\n((?:[ \t]*-[ \t]+[^\n]+\n?)+)", fm)
     if m:
         tags = [t.strip().lstrip("-").strip() for t in m.group(1).splitlines()]
         result["tags"] = [t for t in tags if t]
@@ -75,7 +75,7 @@ def inject_tags(content: str, tags: list[str]) -> str:
         return content
     body = parts[2]
     tags_line = ", ".join(f"`{t}`" for t in tags)
-    return f"{parts[0]}---{parts[1]}---\n> **Теги:** {tags_line}\n\n{body.lstrip()}\n"
+    return f"{parts[0]}---{parts[1]}---\n<div data-search-exclude>**Теги:** {tags_line}</div>\n\n{body.lstrip()}\n"
 
 
 SUBDIR_TITLES = {"sources": "Источники", "entities": "Люди", "concepts": "Идеи", "synthesis": "Анализ"}
