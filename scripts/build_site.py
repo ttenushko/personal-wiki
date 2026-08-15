@@ -86,6 +86,7 @@ def main() -> None:
         else:
             (OUT / section).mkdir(parents=True, exist_ok=True)
     (OUT / "index.md").write_text(build_root_index(), encoding="utf-8")
+    (OUT / "tags.md").write_text("# Теги\n\nСтраница заполняется плагином MkDocs.\n", encoding="utf-8")
     print(f"Site source built in {OUT}")
 
 
