@@ -160,16 +160,13 @@ def build_nav() -> list:
         pages = sorted(
             md.relative_to(OUT).as_posix()
             for md in (OUT / section).rglob("*.md")
-            if md.name not in ("tags.md",)
+            if md.name not in ("tags.md", "index.md")
         )
-        children: list = [{"Индекс": f"{section}/index.md"}]
-        for path in pages:
-            if path.endswith("/index.md"):
-                continue
-            rel = Path(path)
-            sub = rel.parent.name
-            label = SUBDIR_TITLES.get(sub, sub.capitalize())
-            children.append({label: path})
+        children: list = [{title: f"{section}/index.md"}]
+        for p in pages:
+            fm = parse_frontmatter((OUT / p).read_text(encoding="utf-8"))
+            label = fm.get("title") or Path(p).stem
+            children.append({label: p})
         nav.append({title: children})
     return nav
 
@@ -181,8 +178,9 @@ def write_nav_to_mkdocs(nav: list) -> None:
     cfg = cfg_path.read_text(encoding="utf-8")
     nav_yaml = yaml.safe_dump(nav, allow_unicode=True, sort_keys=False, default_flow_style=False)
     block = "nav:\n" + nav_yaml
-    if re.search(r"(?m)^nav:\n", cfg):
-        cfg = re.sub(r"(?m)^nav:\n(?:[ \t].*\n?)*", block + "\n", cfg, count=1)
+    idx = cfg.find("\nnav:\n")
+    if idx >= 0:
+        cfg = cfg[: idx + 1].rstrip() + "\n\n" + block
     else:
         cfg = cfg.rstrip() + "\n\n" + block
     cfg_path.write_text(cfg, encoding="utf-8")
