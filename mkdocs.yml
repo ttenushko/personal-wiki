@@ -34,7 +34,7 @@ extra:
 
 extra_javascript:
   - inline-search.a30d2a2b.js
-  - tags-data.ea68060b.js
+  - tags-data.b098b713.js
 
 nav:
 - Главная: index.md
