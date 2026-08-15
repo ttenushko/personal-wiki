@@ -77,6 +77,15 @@ def inject_tags(content: str, tags: list[str]) -> str:
     return f"{parts[0]}---{parts[1]}---\n> **Теги:** {tags_line}\n\n{body.lstrip()}\n"
 
 
+SUBDIR_TITLES = {"sources": "Источники", "entities": "Люди", "concepts": "Идеи", "synthesis": "Анализ"}
+SECTION_HEADINGS = {
+    "sources": "Источники",
+    "entities": "Люди",
+    "concepts": "Идеи",
+    "synthesis": "Анализ",
+}
+
+
 def copy_wiki(src: Path, section: str, section_title: str) -> None:
     dst = OUT / section
     shutil.rmtree(dst, ignore_errors=True)
@@ -89,6 +98,14 @@ def copy_wiki(src: Path, section: str, section_title: str) -> None:
         content = md.read_text(encoding="utf-8")
         if md.name == "index.md":
             content = content.replace("# Index", "# Индекс", 1)
+            for eng, rus in SECTION_HEADINGS.items():
+                content = re.sub(
+                    rf"(?m)^##[ \t]*{eng}[ \t]*$",
+                    f"## {rus}",
+                    content,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
             if not content.startswith("---"):
                 content = f"---\ntitle: {section_title}\n---\n{content}"
             else:
@@ -134,9 +151,6 @@ def build_root_index() -> str:
         lines.append(f"- [{title}]({section}/index.md)")
     lines.append("")
     return "\n".join(lines)
-
-
-SUBDIR_TITLES = {"sources": "Источники", "entities": "Люди", "concepts": "Идеи", "synthesis": "Анализ"}
 
 
 def build_nav() -> list:
