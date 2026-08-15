@@ -130,17 +130,8 @@ def build_tags_page(tags: dict[str, list[tuple[str, str]]], title: str) -> str:
 
 def build_root_index() -> str:
     lines = ["---", "title: Главная", "---", "# База знаний", ""]
-    lines.append("Три базы знаний. Нажми на раздел, чтобы открыть.")
-    lines.append("")
     for section, title in WIKIS.items():
-        lines.append(f"## [{title}]({section}/index.md)")
-        index = OUT / section / "index.md"
-        if index.exists():
-            for line in index.read_text(encoding="utf-8").splitlines():
-                if line.startswith("- [") and "wiki/" not in line:
-                    lines.append(f"  {line}")
-        lines.append("")
-    lines.append("## [Теги](tags.md)")
+        lines.append(f"- [{title}]({section}/index.md)")
     lines.append("")
     return "\n".join(lines)
 
@@ -166,7 +157,6 @@ def build_nav() -> list:
             children.append({label: path})
         children.append({"Теги": f"{section}/tags.md"})
         nav.append({title: children})
-    nav.append({"Теги": "tags.md"})
     return nav
 
 
