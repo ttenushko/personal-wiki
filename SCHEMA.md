@@ -65,21 +65,23 @@ auto/
 
 ## CLI-команды
 
+> `--wiki` принимает **имя** из реестра (не папку): `Личное`, `Разработка`, `Автомобили`.
+
 ```bash
 # Переключение между вики
-wiki --wiki Личное status
-wiki --wiki Разработка status
-wiki --wiki Автомобили status
+wiki --wiki "Личное" status
+wiki --wiki "Разработка" status
+wiki --wiki "Автомобили" status
 
 # Запись страницы (JSON на stdin)
-echo '{"title":"...", "tags":["..."], "content":"..."}' | wiki --wiki Разработка write wiki/sources/page.md
+echo '{"title":"...", "tags":["..."], "content":"..."}' | wiki --wiki "Разработка" write wiki/sources/page.md
 
 # Поиск
-wiki --wiki Разработка search "android"
-wiki --wiki Личное search "фильм"
+wiki --wiki "Разработка" search "android"
+wiki --wiki "Личное" search "фильм"
 
 # Проверка здоровья
-wiki --wiki Разработка lint
+wiki --wiki "Разработка" lint
 ```
 
 ## Git workflow

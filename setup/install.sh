@@ -38,11 +38,11 @@ fi
 wiki registry 2>/dev/null || true
 
 # 6. Verify
-wiki status --wiki Личное
-wiki status --wiki Разработка
-wiki status --wiki Автомобили
+wiki status --wiki "Личное"
+wiki status --wiki "Разработка"
+wiki status --wiki "Автомобили"
 
 echo ""
 echo "=== Done ==="
 echo "Usage: cd $WIKI_DIR && wiki status"
-echo "Or use --wiki flag: wiki --wiki Разработка search 'query'"
+echo "Or use --wiki flag: wiki --wiki 'Разработка' search 'query'"
