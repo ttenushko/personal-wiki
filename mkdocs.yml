@@ -26,17 +26,18 @@ plugins:
       lang: ru
 
 extra_css:
-  - extra.css
+  - extra.249775b0.css
 
 extra:
   generator: false
 
+
+extra_javascript:
+  - inline-search.a30d2a2b.js
+  - tags-data.ea68060b.js
+
 nav:
 - Главная: index.md
-- Личное:
-  - Индекс: personal/index.md
-- Разработка:
-  - Индекс: dev/index.md
-  - Источники: dev/sources/android-developers.md
-- Автомобили:
-  - Индекс: auto/index.md
+- Личное: personal/index.md
+- Разработка: dev/index.md
+- Автомобили: auto/index.md
