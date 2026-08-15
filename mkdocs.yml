@@ -1,0 +1,30 @@
+site_name: База знаний
+site_url: https://ttenushko.github.io/personal-wiki/
+docs_dir: site-src
+
+theme:
+  name: material
+  language: ru
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Тёмная тема
+    - scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Светлая тема
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search:
+      lang: ru
+
+extra:
+  generator: false
+
+copyright: Личная база знаний
