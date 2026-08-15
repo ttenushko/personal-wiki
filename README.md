@@ -48,26 +48,19 @@
 
 ```
 personal-wiki/
-├── src/wikillm/       # Код проекта (пакет)
-│   ├── bot/           # Telegram-бот (aiogram)
-│   ├── cli/           # CLI-утилита
-│   ├── config/        # Настройки (pydantic-settings)
-│   ├── core/          # Ядро системы
-│   │   ├── llm.py         # Цепочка LLM-провайдеров
-│   │   ├── storage.py     # Локальные страницы + GitHub-синк
-│   │   ├── site_builder.py# Генерация статического HTML
-│   │   ├── fetcher.py     # Скачивание текста со ссылок
-│   │   ├── validation.py  # Валидация вывода LLM (slug, теги)
-│   │   ├── models.py      # Модель WikiPage
-│   │   └── wiki_manager.py# Оркестрация операций
-│   ├── web/           # Веб-интерфейс (FastAPI)
-│   └── prompts/       # Markdown-шаблоны промптов
-├── pages/             # Вики-страницы (markdown, создаётся автоматически)
-├── site/              # Собранный статический HTML (wiki build)
-├── wiki.cmd           # Обёртка CLI для Windows
-├── wiki               # Обёртка CLI для Unix
-├── pyproject.toml     # Зависимости
-└── .env.example       # Шаблон конфигурации
+├── wikis/               # Вики-базы (llmwiki-cli)
+│   ├── personal/        #   «Личное»
+│   ├── dev/             #   «Разработка»
+│   └── auto/            #   «Автомобили»
+├── scripts/
+│   └── build_site.py    # Сборка MkDocs из вики (викилинки, теги, навигация)
+├── setup/
+│   └── install.sh       # Быстрая настройка на Orange Pi
+├── .github/workflows/
+│   └── pages.yml        # GitHub Actions: сборка + деплой MkDocs
+├── SCHEMA.md            # Общая схема страниц для LLM
+├── mkdocs.yml           # Конфиг MkDocs (nav вписывается при сборке)
+└── .env.example         # Шаблон конфигурации (ключи для бота/LLM)
 ```
 
 ## Быстрый старт

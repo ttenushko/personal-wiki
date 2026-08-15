@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WIKIS = {"personal": "Личное", "dev": "Разработка", "auto": "Автомобили"}
+WIKI_ROOT = ROOT / "wikis"
 OUT = ROOT / "site-src"
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
@@ -204,7 +205,7 @@ def main() -> None:
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True, exist_ok=True)
     for section, title in WIKIS.items():
-        wiki_src = ROOT / section / "wiki"
+        wiki_src = WIKI_ROOT / section / "wiki"
         if wiki_src.exists():
             copy_wiki(wiki_src, section, title)
         else:

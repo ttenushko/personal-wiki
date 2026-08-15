@@ -2,10 +2,10 @@
 
 ## Обзор
 
-Три вики-хранилища:
-- `personal/` — личное (фильмы, хобби, идеи, заметки)
-- `dev/` — разработка (Android, Kotlin, технологии)
-- `auto/` — автомобили (техобслуживание, ремонт)
+Три вики-хранилища (в общей папке `wikis/`):
+- `wikis/personal/` — личное (фильмы, хобби, идеи, заметки)
+- `wikis/dev/` — разработка (Android, Kotlin, технологии)
+- `wikis/auto/` — автомобили (техобслуживание, ремонт)
 
 ## Как работает AI-оброботка
 
@@ -45,7 +45,7 @@ Content: use [[wikilinks]], headers (##), preserve key info.
 ## Структура файлов
 
 ```
-personal/
+wikis/personal/
   .llmwiki.yaml
   SCHEMA.md
   raw/              # Исходные документы (неизменяемые)
@@ -56,10 +56,10 @@ personal/
     sources/        # Сводки по источникам
     synthesis/      # Кросс-тематический анализ
 
-dev/
+wikis/dev/
   ...
 
-auto/
+wikis/auto/
   ...
 ```
 
